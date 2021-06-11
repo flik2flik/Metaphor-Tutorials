@@ -1,4 +1,4 @@
-= Multi-Signature Scripts on Cardano - Microsoft Windows
+= Multi-Signature Scripts on Cardano - Mircosoft Windows 10
 :author: Jack O'Brien
 :imagesdir: images
 :source-highlighter: highlight.js
@@ -19,36 +19,67 @@ tool `cardano-cli` on Microsoft Windows. The notes are a bonus set of documentat
 is done on a Cardano *Testnet* so you don't need to buy Ada or spend Ada to complete the steps. 
 Everything shown works on the Cardano Mainnet too. You will need to make a few changes to the commandline options.
 
-The tutorial shows how to take advantage of Cardano's native multi-signature support. **Scripts** are a way of allowing an unspent transaction outputs to be used as an input to a new transaction if a pre-defined combination of signatures is provided. e.g Two people having to sign a transaction simultaneously.
+The tutorial shows how to take advantage of Cardano's native multi-signature support. **Scripts** are a way of allowing an unspent transaction outputs to be used as an input to a new transaction if a pre-defined combination of signatures is provided. e.g Two or more people having to sign a transaction simultaneously.
 
 We'll be using the **Cardano Node** that is installed with {url-daedalus}[Daedalus], the full-node wallet for Cardano. {url-daedalus}[Daedalus] works on Microsoft Windows, Apple Mac OSX, and Linux. 
 
-This tutorial is for Microsoft Windows, and there is a companion tutorial for Apple Mac OSX. 
+This tutorial is for Microsoft Windows 10, and there is a companion tutorial for Mac OSX. 
 
 To make the tutorials consistent across platforms I'll be using Microsoft Visual Studio ( {url-vscode}[VSCode] ). By opening this file in VSCode, or https://github.com/atMetaphor/Metaphor-Tutorials[in your browser] you can copy/paste and change the parameters around directly within {url-vscode}[VSCode]. I'll be using VSCode in future tutorials so this is a way to introduce things. This does however mean you'll need to install {url-vscode}[VSCode]. 
 
-If you don't want to do that, you will still be able to follow along easily enough using just a pwershell terminal window.
+If you don't want to do that, you will still be able to follow along easily enough using just a powershell terminal window.
 
 === Videos
 This document is a bonus video for a series of short {url-playlist}[tutorial videos].
 
 == Getting Started - Script Types
 
-I'm going to assume you have already completed the native token tutorial videos and are familiar with how things are set up. If not go and check out these {url-playlist}[Tutorials] as you will need context with reguards to the UTXO model and how transactions are built. Before we start with anything there are the types of multi-signature script types.
+It's important that you have already completed the native token tutorial videos and familiarised yourself with how things are set up. If not go and check out these {url-playlist}[Tutorials] as you will need context with reguards to the UTXO model and how transactions are built. Before we start with anything there are three types of multi-signature script types.
 
-All :: All keys must be used to witness and sign a transaction
-Any :: Any one key can be used to witness and sign a transaction
-At Least :: At least 2,3 or more keys are required to witness and sign a transaction
+All :: The first being the `type` `all` indicating that `all` keys must be used to witness and sign and spend a transaction based on the coresponding payment key hashes listed.
+Any :: The `type` `Any` being that any one key listed in the coresponding script can be used to witness and sign a transaction.
+At Least :: Lastly, the `type` `atLeast`, specifies that 2 or more keys listed in the coresponding script are required to witness and sign a transaction for it to be spent.
 
-Multi-Sig scripts are a usefull way to spend, say a pool of tokens that can only be spent under certain conditions and have to be signed and witnessed by 2 or more keys. In a sense it's adds a contraint on how things are spent natively on the cardano network.
+Multi-Sig scripts allow for unspent transactions to be spent under a pre-defined combination of signatures. Depending on the type of script provided, it's a way of collectively choosing how you want, say, a pool of tokens to be spent for example.
 
 == Using Multisignature Scripts
 
-Let's go ahead and walk through how a multiscript works and how it runs. Involving the creation of some new keys and the multi-signature script. Followed by the gathering of the required witnesses in order to spend a basic transaction. I will be using the all script to demonstrate this.
+Let's go ahead and walk through how a multiscript works and how it runs. Involving the creation of some new keys and the multi-signature script. Followed by the gathering of the required witnesses in order to spend a basic transaction. I will be using the `all` type script to demonstrate this, Feel free to play around with the other types.
+
+=== Creating a Powershell Terminal
+Open up {url-vscode}[VSCode] then kbd:[Ctrl + Shift + `] to open up a Powershell terminal.
+
+image::vs-terminal.png[]
+
+[NOTE] By default your terminal is set to using the default command shell. You will need to change this to Powershell. To change, select the dropdown selection box, top right of the terminal window, then select Powershell. 
+
+Next we need to setup the filesystem locations for the `cardano-cli`, the communication channel between `cardano-cli` and the running *Cardano Node*, and a magic number identifying the Testnet we're using. These settings will be used in our shell session. 
+
+In the Powershell terminal pane, copy and paste the code below to set all that up. 
+
+[source,powershell]
+----
+new-alias cardano-cli "C:\Program Files\Daedalus Testnet\cardano-cli" <1>
+
+$env:CARDANO_NODE_SOCKET_PATH='\\.\pipe\cardano-node-testnet.{0}.0' -f $((Get-WmiObject Win32_Process -Filter Name='"Daedalus Testnet.exe"').ProcessId | 
+select -first 1) <2>
+
+$env:MAGICID=1097911063 <3>
+----
+<1> Linking our `cardano-cli` that came with {url-daedalus-tn}[Daedalus].
+<2> Mapping the named-pipe id to interface with the Cardano node on {url-daedalus}[Daedalus].
+<3> Creating an environment variable with the magic number for the Testnet.
+
+[WARNING]
+If you installed {url-daedalus-tn}[Daedalus Testnet] into a different location than the default used above, you'll need to change the paths to reflect the alternative location.
+
+These commands must be re-entered everytime you start a new shell. To save some time you can set up the alias, path, and MAGICID variables in the system environment. That way you don't have to enter them into the shell everytime. The screen capture below demonstrates doing that.
+
+image::path.gif[] 
 
 === Generating the Script Address
 
-You will first need to generate the new payment keys in order to generate the nessesary key hashes which will be put into our signature script.
+You will first need to generate new payment keys to generate the necessary key hashes, which will be put into our signature script.
 
 [source,powershell]
 ----
@@ -60,14 +91,18 @@ cardano-cli address key-gen `
 [IMPORTANT]
 Repeat this step until you have 2 or 3 keys generated in your directory.
 
-With our keys out of the way, we can now generate our Multi-Signature Script. To do this we have to generate a JSON file (as the scripts are written as JSON objects) and hash our newly generated verification keys.
+With our keys generated, we can now create our Multi-Signature Script. To do this we have to generate a JSON file (as the scripts are written as JSON objects) and hash our generated verification keys.
 
 [source,powershell]
 ----
-new-item multisig.json -type file
-----
+new-item multisig.json -type file <1>
 
-Go ahead an open the file up into a new tab and copy and paste this basic boilerplate in. If you wish to add more keys just copy and paste in more keyhash objects. Make sure to stay within the structure of the document else the script will be invalid.
+code multisig.json <2>
+----
+<1> Create a new multisig Json file using the touch command.
+<2> Open the file in a new window in VSCode.
+
+Copy and paste this basic script boilerplate in. If you wish to add more keys simply copy and paste in more keyhash objects. Make sure to stay within the structure of the document otherwise the script will be invalid when submitting the transaction.
 
 [source,JSON]
 ----
@@ -92,7 +127,7 @@ Go ahead an open the file up into a new tab and copy and paste this basic boiler
 <1> Our hash of the verfication key we generated earlier.
 <2> The type of the key we are using in the script.
 <3> The type of the script we are using, In the case of this tutorial we are using the "all" type script.
-<4> If this were an "atLest" script we would add a "required" object followed by how many keys needed say, 2 for example.
+<4> If this were an `atLest` script we would add a `required` object above our `type` followed by how many keys needed say, 2 for example.
 
 With the boilerplate copied and opened in a new tab we can go ahead and hash our verfication keys.
 
@@ -105,7 +140,7 @@ cardano-cli address key-hash `
 ----
 <1> An example of what your keyhash will look like.
 
-Copy an paste the result of the hash into the "keyhash" object in our multisig.json file. You will have to repeat this step depending on how many keys you generated. your result will look something like this.
+Copy an paste the result of the hash into the `keyhash` object in our multisig.json file. You will have to repeat this step depending on how many keys you generated. Your result will look something like this.
 
 [source,Json]
 ----
@@ -130,100 +165,100 @@ Copy an paste the result of the hash into the "keyhash" object in our multisig.j
 
 === Creating a Multi-Signature Address
 
-With everthing all set up and our keys are all set into our script we can now generate an address from the script that we created earlier. This address is going to be unique only to the script that we created. So only the keys that we said can be witness to this are the only ones that can spend from this address.
+With our keys hashed and saved into the script we can now generate an address from the script. This address is going to be unique only to the script that we created. So only the keys that we hashed and listed can be witness to this are the only ones that can spend from this generated address.
 
 Go aheaad and generate the address using the following command.
 
-[source,Poweshell]
+[source,powershell]
 ----
 cardano-cli address build-script `
   --script-file ./multisig.json `
-  --testnet-magic $env:MAGICID `
+  --testnet-magic $MAGICID `
   --out-file multisig.addr
 ----
 
 ==== Sending some ADA
 
-Before we move on it's best we wire some ada from our testnet wallet to the multi-signature address, oherwise we wont have anything to spend and this tutorial will be invalid.
+Before we move on it's best we send some ada from our daedalus wallet to the multi-signature address for us to spend.
 
-[source,Powershell]
+[source,powershell]
 ----
 cat multisig.addr <1>
 
-cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $env:MAGICID --mary-era <2>
+cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $MAGICID --mary-era <2>
 ----
 <1> prints the readout of the file "multisig.addr". Copy the output and send some Lovelace.
 <2> Checking if any transaction inputs came through and the Lovelace received.
 
 === Creating a Multisig Transaction
 
-If you've done the previous tutorial in the {url-playlist}[minitng native assets on cardano] you will be familiar with buiding transactions. If your new to this, stop what you are doing and watch the first two videos before coming here.
+If you've done the previous tutorial in the {url-playlist}[minitng native assets on cardano] you will be familiar with building transactions. If your new to this, stop what you are doing and watch the first two videos before coming here.
 
-The transaction for a multisig script is really no different to one without it. But instead of doing a transaction where only 1 person has to sign it were doing it with mulitple witnesses and signing keys with the addition of a ttl (time to live) which puts restrictions on how long the we have before the transaction dies and you have to start again.
+The `raw` transaction for a multisig script is really no different to one without it. But instead of doing a transaction where only 1 person has to sign it were doing it with mulitple witnesses and signing keys with the optional addition of a ttl (time to live). This puts restrictions on how long the we have before the transaction dies and you have to start again.
 
 ==== Enviroment varables
 
-Before we start i'm going to first set up my enviroment varibales, if you followed the previous tutorials then youll know what i'm talking about. Simple story short is that they enbale us to pass values really easibly by making them identifiable.
+Before we start, I'm going to first set up my environment variables. If you followed previous tutorials of mine, you'd know what I'm talking about. A simple story short is that they enable us to pass values easily by making them identifiable.
 
-[source,Powerhshell]
+[source,powershell]
 ----
-$TXINID0="e45fdc75440593757374652163a0a1f03523dc7527de32bb74dc66a1dc5ead8f#0"
-$LOVELACE0=1000000
-$FEE=0
-$OUTFILE="multisig.raw"
-$WITNESSFILE="multisig.witness"
-$SIGNEDFILE="multisig.signed"
-$OUTADDR="addr_test1qru07t6cx49r372sz09huss5s62amfj34grckanm6vh0cd4plz8eefmaz9py8gej26e0xq4nlhzncajdr2av7mena49s5l55t6"
-$OUTLOVELACE=5000000
+TXINID0="e45fdc75440593757374652163a0a1f03523dc7527de32bb74dc66a1dc5ead8f#0"
+LOVELACE0=1000000
+FEE=0
+OUTFILE="multisig.raw"
+WITNESSFILE="multisig.witness"
+SIGNEDFILE="multisig.signed"
+OUTADDR="addr_test1qru07t6cx49r372sz09huss5s62amfj34grckanm6vh0cd4plz8eefmaz9py8gej26e0xq4nlhzncajdr2av7mena49s5l55t6"
+OUTLOVELACE=5000000
 
-cardano-cli query tip --testnet-magic=$env:MAGICID <1>
+cardano-cli query tip --testnet-magic=$MAGICID <1>
 
-$SLOTNUM=27965677 <2>
+SLOTNUM=27965677 <2>
 ----
-<1> Tiping the block so I can grab the current slot. (quite the catchy rhyme too huh?)
+<1> Tiping the block so I can catch the current slot. (quite the catchy rhyme too huh?)
 <2> Putting the current slot number into an enviroment variable.
 
 ==== Building the Raw Transaction
 
-With our envroment varables set up, we can now go ahead and build the transaction. Note that this part can be very finicky and if subject to typos and spaces you will run into problems.
+ We can now go ahead and build the transaction. Note that this part can be very finicky and if subject to typos and spaces you will run into problems.
 
 [source,Powershell]
 ----
 cardano-cli transaction build-raw `
 --mary-era `
---ttl $($SLOTNUM + 2000) ` <1>
+--ttl $(expr $SLOTNUM + 2000) ` <1>
 --fee $FEE `
 --tx-in $TXINID `
---tx-out "$(cat multisig.addr)+$($LOVELACE0 + $OUTLOVELACE - $FEE)" `
+--tx-out $(cat multisig.addr)+$(expr $LOVELACE0 + $OUTLOVELACE - $FEE) `
 --tx-out "$OUTADDR+$OUTLOVELACE" `
 --out-file $OUTFILE
 ----
-<1> As mentioned before you have the current slot plus an arbitrary ammount added before the transaction can't be processed.
+<1> As mentioned before you have the current slot plus an arbitrary ammount added before the transaction can't be processed. This choice is entirely optional, so don't be afraid to take this out.
 
-Calculate a fee and rebuild the "$FEE" variable. As soon as that is complete be ssure to rebuild the raw transaction again before going ahead with the other steps.
+Calculate a fee and rebuild the `$FEE` variable. As soon as that is complete be sure to rebuild the raw transaction again before going ahead with the other steps.
 
 [NOTE]
-Make sure to set the correct parameters for your transaction in's and outs as well as the witness counts depending how you set up the script parameters.
+Make sure to set the correct parameters for your transaction in's and outs and the witness count, depending on how you set up the script parameters. Your witness count should match that by how many keys you put into the script.
 
-[source,Powershell]
+[source,powershell]
 ----
 cardano-cli transaction calculate-min-fee `
   --tx-body-file $OUTFILE `
   --tx-in-count 2 `
   --tx-out-count 1 `
   --witness-count 3 `
-  --testnet-magic $env:MAGICID `
+  --testnet-magic $MAGICID `
   --protocol-params-file protocol.json
 ----
 
 === Witnessing and Signing the Transaction
 
-With our fee calculated and out transaction rebuilt, we start to move on to the witnessing part of the transaction. From this point onwards is were we start to deviate a little bit. Because we made a script of the type "All" we have to make sure we witness and sign all those keys that were put into the script parameters. Now it's not normal for us to hold all the keys to the castle so to speak, but this being a tutorial I think it's fine as were only demonstrating the function of the script here.
+With our transaction rebuilt, we start to move on to the witnessing part of the transaction. From this point onwards is where we start to deviate a little bit. Because we made a script of the type `All`, we have to make sure we witness and sign all those keys put into the script. Now it's not normal for us to hold all the keys to the castle, so to speak, but this being a tutorial, I think it's OK only to demonstrate the script's function here.
 
-[source,Powershell]
+[source,powershell]
 ----
 cardano-cli transaction witness `
-  --testnet-magic $env:MAGICID `
+  --testnet-magic $MAGICID `
   --tx-body-file $OUTFILE `
   --script-file ./allMultiSigScript.json `
   --out-file $WITNESSFILE
@@ -247,13 +282,13 @@ cardano-cli transaction witness `
   --out-file "Key3_$WITNESSFILE"
 ----
 
-You will have noticed that we have 3 files in our directory named with the corressponding keys. Now that our witnesses have signed the transaction we can assemble it ready for submition on the testnet.
+You will have noticed having dones this, that we have 3 files in our directory named with the corressponding keys. Now that our witnesses have signed the transaction we can assemble it ready for submition on the testnet.
 
-[source,Powershell]
+[source,powershell]
 ----
 cardano-cli transaction assemble `
-  --tx-body-file $OUTFILE `
-  --witness-file $WITNESSFILE `
+  --tx-body-file $env:OUTFILE `
+  --witness-file $env:WITNESSFILE `
   --witness-file "Key1_$WITNESSFILE" `
   --witness-file "Key2_$WITNESSFILE" `
   --witness-file "Key3_$WITNESSFILE" `
@@ -261,14 +296,14 @@ cardano-cli transaction assemble `
 ----
 
 
-[source,Powershell]
+[source,powershell]
 ----
   cardano-cli transaction submit `
   --tx-file $TXSIGNEDFILE `
-  --testnet-magic $env:MAGICID
+  --testnet-magic $MAGICID
 
-cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $env:MAGICID --mary-era <1>
+cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $MAGICID --mary-era <1>
 ----
 <1> Check to see if the transaction completed!
 
-With the transaction complete and the ada in our retrospective wallet. You should now have the knowledge to understand the basics of multi signature scripts.
+With the transaction complete and the ada in our retrospective wallet. You should now have the knowledge to understand the basics of multi signature scripts. Go ahead and try out the different types and experiment with your friends.

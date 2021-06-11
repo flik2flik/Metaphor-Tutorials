@@ -12,6 +12,7 @@
 :url-vscode:   https://code.visualstudio.com/
 :url-faucet:   https://developers.cardano.org/en/testnets/cardano/tools/faucet/
 :url-playlist: https://www.youtube.com/playlist?list=PLKl4dqDtindkquPR7EVknxtBPCtdM1vDr
+:url-cardanoConfig: https://hydra.iohk.io/build/5822084/download/1/index.html
 
 == Introduction
 The aim of these tutorial notes are to demostrate how to mint tokens on Cardano using the commandline 
@@ -73,11 +74,12 @@ alias cardano-cli="/Applications/Daedalus\ Testnet.app/Contents/MacOS/cardano-cl
 
 export CARDANO_NODE_SOCKET_PATH=~/Library/Application\ Support/Daedalus\ Testnet/cardano-node.socket <2>
 
-export MAGICID=1097911063 <3>
+export MAGICID=1097911063 <3> <4>
 ----
 <1> Linking our `cardano-cli` that came with {url-daedalus-tn}[Daedalus].
 <2> Mapping the socket id to interface with the Cardano node on {url-daedalus}[Daedalus].
-<3> Creating an environment variable with the magic number for the Testnet.
+<3> Creating an environment variable with the network magic number for the Testnet.
+<4> This network magic ID is specfic to the shelly testnet. If you want to access the mainnet you can find the network magic number {url-cardanoConfig}[here] under shelleyGenesis.
 
 [WARNING]
 If you installed {url-daedalus-tn}[Daedalus Testnet] into a different location than the default used above, you'll need to change the paths to reflect the alternative location.
@@ -105,6 +107,10 @@ cardano-cli address build --payment-verification-key-file payment.vkey --out-fil
 ----
 <1> Generating your payment and signing keys.
 <2> Generating a wallet *Address* from the payment key
+
+[NOTE]
+It's worth noting that addresses generated using cardano-cli address key-gen
+build are unrelated to one's Daedaleus wallet.
 
 === Testing the Generated Address
 You can test that the *Address* is valid and working by querying the blockchain for any unspent transaction outputs associated with the address. If you've followed the steps above there will be no unspent outputs since the *Address* is new.
@@ -153,9 +159,9 @@ export SIGNEDFILE=matx.signed <3>
 
 export FEE=0 <4>
 ----
-<1> The amount of Lovelace is in that unspent output.
+<1> The amount of Lovelace is in an unspent output.
 <2> Information of the transaction we plan to build.
-<3> Our signed file we created with our signing key.
+<3> Our signed file that we will create with our signing key.
 <4> How big a fee is needed to process the transaction.
 
 Some of the environment variables will have values specific to a particular step in our workflow. We'll be updating them as we proceed. For the moment these are the values I'm using. Plug in your settings.
@@ -166,8 +172,8 @@ export TXINID=f5ed8592d6c733f8942c2bff7714be90f466148c70f17e6c55138950c025d2a7 <
 
 export OUTADDR=addr_test1qzz2l4gmm29rg0lmweh39x7lcwm6yxmha5806slfks8mxz83zg5yyt7lc4wuekkks0pefg468s8nhy2e4srz7lu2dssqqej8pg <2>
 ----
-<1> The address we want to send to an output to. In this scenario I've used an address from my Daedalus Wallet.
-<2> ID of the unspent output we plan to spend. It is a combination of the Transaction Id and Output Index, the `#0` at the end. It changes everytime we spend an output.
+<1> ID of the unspent output we plan to spend. It is a combination of the Transaction Id and Output Index, the `#0` at the end. It changes everytime we spend an output we will go into the index a bit further when building our transaction.
+<2> The address we want to send to an output to. In this scenario I've used an address from my Daedalus Wallet.
 
 === Our first transaction
 Now that our environment is setup we can proceed with building a transaction. It takes multiple steps to do that. First we create a basic raw version of the transaction, calculate the fee, sign it, then submit the transaction. 
@@ -292,6 +298,17 @@ cat policy/policy.script <1>
 ----
 <1> Looking into the script file to see if the data we put in worked.
 
+If done correctly it should look something like this.
+
+[source,Json]
+----
+{
+    "keyHash":"4ea151e00ea89d4194790c9926c3c790b3873819c55a1e1fe09badf5", <1>
+    "type": "sig"
+}
+----
+<1> the policy verification key hashed with the type `sig`.
+
 [source,bash]
 ----
 cardano-cli transaction policyid --script-file ./policy/policy.script <1>
@@ -312,20 +329,22 @@ First create the file.
 touch metadata.json
 ----
 
-Open it in our editor `code metdata.json` and paste the following in. None of the values are important, so feel free to change them to suit.
+Open `metdata.json`in our editor and paste the following in. None of the values are important, so feel free to change them to suit.
 
 [source,Json]
 ----
 {
-    "6969":{
+    "6969":{ <1>
        "ticker": "MELON",
        "name": "meloncoin",
        "description": "This is a description about watermelons.",
        "homepage": "www.melons.com",
-       "address": "addr_test1vq0ghmsf2n4vqd8sv5c0emht0mmfpc47zdt3rzql447g8vgmfcwkz"
+       "address": "addr_test1vq0ghmsf2n4vqd8sv5c0emht0mmfpc47zdt3rzql447g8vgmfcwkz" <2>
     }
   }
 ----
+<1> You need to input a 4 digit number as a way to index the metadata. It wont show up in the transaction but it's needed in order for it to be processed in with the rest of the transaction.
+<2> Each object must be no longer than 68 `bytes` or `characters`. Otherwise the transaction will fail.
 
 With our metadata set up, we can now go ahead and reset some of our environment variables as well as make some new ones.
 
