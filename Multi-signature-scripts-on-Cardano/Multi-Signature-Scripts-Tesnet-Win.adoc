@@ -85,7 +85,7 @@ You will first need to generate new payment keys to generate the necessary key h
 ----
 cardano-cli address key-gen `
   --verification-key-file payment1.vkey `
-  --signing-key-file payment1.skey `
+  --signing-key-file payment1.skey
 ----
 
 [IMPORTANT]
@@ -134,7 +134,7 @@ With the boilerplate copied and opened in a new tab we can go ahead and hash our
 [source,powershell]
 ----
 cardano-cli address key-hash `
-  --payment-verification-key-file pay1.vkey
+  --payment-verification-key-file payment1.vkey
 
 08d2bfb72636c3214490b01c4fe17e565eea4033243aaa7c86958df5 <1>
 ----
@@ -173,7 +173,7 @@ Go aheaad and generate the address using the following command.
 ----
 cardano-cli address build-script `
   --script-file ./multisig.json `
-  --testnet-magic $MAGICID `
+  --testnet-magic $env:MAGICID `
   --out-file multisig.addr
 ----
 
@@ -185,7 +185,7 @@ Before we move on it's best we send some ada from our daedalus wallet to the mul
 ----
 cat multisig.addr <1>
 
-cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $MAGICID --mary-era <2>
+cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $env:MAGICID<2>
 ----
 <1> prints the readout of the file "multisig.addr". Copy the output and send some Lovelace.
 <2> Checking if any transaction inputs came through and the Lovelace received.
@@ -202,21 +202,18 @@ Before we start, I'm going to first set up my environment variables. If you foll
 
 [source,powershell]
 ----
-TXINID0="e45fdc75440593757374652163a0a1f03523dc7527de32bb74dc66a1dc5ead8f#0"
-LOVELACE0=1000000
-FEE=0
-OUTFILE="multisig.raw"
-WITNESSFILE="multisig.witness"
-SIGNEDFILE="multisig.signed"
-OUTADDR="addr_test1qru07t6cx49r372sz09huss5s62amfj34grckanm6vh0cd4plz8eefmaz9py8gej26e0xq4nlhzncajdr2av7mena49s5l55t6"
-OUTLOVELACE=5000000
+$TXINID0="e45fdc75440593757374652163a0a1f03523dc7527de32bb74dc66a1dc5ead8f#0"
+$LOVELACE0=1000000
+$FEE=0
+$OUTFILE="multisig.raw"
+$WITNESSFILE="multisig.witness"
+$TXSIGNEDFILE="multisig.signed"
+$OUTADDR="addr_test1qru07t6cx49r372sz09huss5s62amfj34grckanm6vh0cd4plz8eefmaz9py8gej26e0xq4nlhzncajdr2av7mena49s5l55t6"
+$OUTLOVELACE=5000000
 
-cardano-cli query tip --testnet-magic=$MAGICID <1>
-
-SLOTNUM=27965677 <2>
+cardano-cli query tip --testnet-magic=$env:MAGICID <1>
 ----
 <1> Tiping the block so I can catch the current slot. (quite the catchy rhyme too huh?)
-<2> Putting the current slot number into an enviroment variable.
 
 ==== Building the Raw Transaction
 
@@ -226,14 +223,12 @@ SLOTNUM=27965677 <2>
 ----
 cardano-cli transaction build-raw `
 --mary-era `
---ttl $(expr $SLOTNUM + 2000) ` <1>
 --fee $FEE `
---tx-in $TXINID `
---tx-out $(cat multisig.addr)+$(expr $LOVELACE0 + $OUTLOVELACE - $FEE) `
+--tx-in $TXINID0 `
+--tx-out $(cat multisig.addr)+$($LOVELACE0 + $OUTLOVELACE - $FEE) `
 --tx-out "$OUTADDR+$OUTLOVELACE" `
 --out-file $OUTFILE
 ----
-<1> As mentioned before you have the current slot plus an arbitrary ammount added before the transaction can't be processed. This choice is entirely optional, so don't be afraid to take this out.
 
 Calculate a fee and rebuild the `$FEE` variable. As soon as that is complete be sure to rebuild the raw transaction again before going ahead with the other steps.
 
@@ -247,7 +242,7 @@ cardano-cli transaction calculate-min-fee `
   --tx-in-count 2 `
   --tx-out-count 1 `
   --witness-count 3 `
-  --testnet-magic $MAGICID `
+  --testnet-magic $env:MAGICID `
   --protocol-params-file protocol.json
 ----
 
@@ -258,24 +253,24 @@ With our transaction rebuilt, we start to move on to the witnessing part of the 
 [source,powershell]
 ----
 cardano-cli transaction witness `
-  --testnet-magic $MAGICID `
+  --testnet-magic $env:MAGICID `
   --tx-body-file $OUTFILE `
-  --script-file ./allMultiSigScript.json `
+  --script-file ./multisig.json `
   --out-file $WITNESSFILE
 
-  cardano-cli transaction witness `
+cardano-cli transaction witness `
   --testnet-magic $env:MAGICID `
   --tx-body-file $OUTFILE `
   --signing-key-file payment1.skey `
   --out-file "Key1_$WITNESSFILE"
 
-    cardano-cli transaction witness `
+cardano-cli transaction witness `
   --testnet-magic $env:MAGICID `
   --tx-body-file $OUTFILE `
   --signing-key-file payment2.skey `
   --out-file "Key2_$WITNESSFILE"
 
-    cardano-cli transaction witness `
+cardano-cli transaction witness `
   --testnet-magic $env:MAGICID `
   --tx-body-file $OUTFILE `
   --signing-key-file payment3.skey `
@@ -287,8 +282,8 @@ You will have noticed having dones this, that we have 3 files in our directory n
 [source,powershell]
 ----
 cardano-cli transaction assemble `
-  --tx-body-file $env:OUTFILE `
-  --witness-file $env:WITNESSFILE `
+  --tx-body-file $OUTFILE `
+  --witness-file $WITNESSFILE `
   --witness-file "Key1_$WITNESSFILE" `
   --witness-file "Key2_$WITNESSFILE" `
   --witness-file "Key3_$WITNESSFILE" `
@@ -300,9 +295,9 @@ cardano-cli transaction assemble `
 ----
   cardano-cli transaction submit `
   --tx-file $TXSIGNEDFILE `
-  --testnet-magic $MAGICID
+  --testnet-magic $env:MAGICID
 
-cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $MAGICID --mary-era <1>
+cardano-cli query utxo --address $(cat multisig.addr) --testnet-magic $env:MAGICID <1>
 ----
 <1> Check to see if the transaction completed!
 
