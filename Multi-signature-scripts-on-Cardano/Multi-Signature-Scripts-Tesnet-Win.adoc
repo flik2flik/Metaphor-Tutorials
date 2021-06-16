@@ -12,6 +12,7 @@
 :url-vscode:   https://code.visualstudio.com/
 :url-faucet:   https://developers.cardano.org/en/testnets/cardano/tools/faucet/s
 :url-playlist: https://www.youtube.com/playlist?list=PLKl4dqDtindkquPR7EVknxtBPCtdM1vDr
+:url-cardanoConfig: https://hydra.iohk.io/build/6498473/download/1/index.html
 
 == Introduction
 The aim of these tutorial notes are to demostrate how to use Multi-Signature scripts on Cardano using the commandline 
@@ -64,11 +65,12 @@ new-alias cardano-cli "C:\Program Files\Daedalus Testnet\cardano-cli" <1>
 $env:CARDANO_NODE_SOCKET_PATH='\\.\pipe\cardano-node-testnet.{0}.0' -f $((Get-WmiObject Win32_Process -Filter Name='"Daedalus Testnet.exe"').ProcessId | 
 select -first 1) <2>
 
-$env:MAGICID=1097911063 <3>
+$env:MAGICID=1097911063 <3> <4>
 ----
 <1> Linking our `cardano-cli` that came with {url-daedalus-tn}[Daedalus].
 <2> Mapping the named-pipe id to interface with the Cardano node on {url-daedalus}[Daedalus].
 <3> Creating an environment variable with the magic number for the Testnet.
+<4> This network magic ID is specfic to the shelly testnet. If you want to access the mainnet you can find the network magic number {url-cardanoConfig}[here] under shelleyGenesis.
 
 [WARNING]
 If you installed {url-daedalus-tn}[Daedalus Testnet] into a different location than the default used above, you'll need to change the paths to reflect the alternative location.

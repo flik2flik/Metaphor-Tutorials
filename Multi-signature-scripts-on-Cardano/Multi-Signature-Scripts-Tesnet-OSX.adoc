@@ -12,6 +12,7 @@
 :url-vscode:   https://code.visualstudio.com/
 :url-faucet:   https://developers.cardano.org/en/testnets/cardano/tools/faucet/s
 :url-playlist: https://www.youtube.com/playlist?list=PLKl4dqDtindkquPR7EVknxtBPCtdM1vDr
+:url-cardanoConfig: https://hydra.iohk.io/build/6498473/download/1/index.html
 
 == Introduction
 The aim of these tutorial notes are to demostrate how to use Multi-Signature scripts on Cardano using the commandline 
